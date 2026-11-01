@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rounding to the Nearest 100 Sort</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      font-family: Arial, sans-serif;
+      color: #000;
+      background: #F3F8FF;
+      --blue: #1764b4;
+      --red: #c40000;
+      --green: #167335;
+    }
+    body { margin: 0; min-height: 100vh; padding: 48px 24px; }
+    main { max-width: 1180px; margin: auto; }
+    h1 {
+      margin: 0 0 20px;
+      color: #000;
+      font: bold clamp(28px, 3.5vw, 40px)/1.2 Arial, sans-serif;
+      text-align: center;
+    }
+    .directions {
+      max-width: 890px;
+      margin: 0 auto 34px;
+      color: #000;
+      font-size: 18px;
+      line-height: 1.6;
+      text-align: center;
+    }
+    .item-limit { color: var(--red); font-weight: bold; }
+    .board {
+      display: grid;
+      grid-template-columns: 1.3fr repeat(3, 1fr);
+      align-items: start;
+      gap: 18px;
+    }
+    .box {
+      overflow: hidden;
+      background: #fff;
+      border: 1px solid #aaa;
+      border-radius: 14px;
+      min-width: 0;
+    }
+    .box h2 {
+      margin: 0;
+      padding: 20px 10px;
+      background: var(--blue);
+      color: #fff;
+      font-size: 22px;
+      font-weight: bold;
+      line-height: 1.2;
+      text-align: center;
+    }
+    .drop-zone {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 300px;
+      padding: 18px;
+      transition: background-color 120ms ease;
+    }
+    /* The first container is both wider and longer than the answer boxes. */
+    #numbers {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-content: start;
+      min-height: 380px;
+    }
+    .drop-zone.drag-over { background: #eaf3ff; }
+    .drop-zone[data-rounds-to].drag-over,
+    .drop-zone[data-rounds-to].drag-over + .box-footer {
+      background: #ffb347;
+    }
+    .number {
+      position: relative;
+      min-width: 0;
+      min-height: 54px;
+      padding: 12px 25px;
+      border: 1px solid #b5bec9;
+      border-radius: 8px;
+      background: #93C5FD;
+      color: #000;
+      font: bold 24px/1.2 Arial, sans-serif;
+      text-align: center;
+      cursor: grab;
+      user-select: none;
+      touch-action: manipulation;
+    }
+    .number:active { cursor: grabbing; }
+    .number:hover { border-color: var(--blue); }
+    .number.selected {
+      outline: 3px solid var(--blue);
+      outline-offset: 3px;
+    }
+    .number.dragging { opacity: .4; }
+    .number.correct {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+    }
+    .number.incorrect {
+      background: var(--red);
+      color: #fff;
+      border-color: var(--red);
+    }
+    .mark {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 15px;
+    }
+    .box-footer {
+      margin: 0;
+      padding: 0 12px 16px;
+      color: #4b5563;
+      font-size: 14px;
+      text-align: center;
+      transition: background-color 120ms ease;
+    }
+    .controls { margin-top: 28px; text-align: center; }
+    .access-help { margin: 0 0 14px; font-size: 14px; line-height: 1.5; }
+    #progress { margin: 0 0 14px; font-size: 16px; font-weight: bold; }
+    #reset {
+      padding: 10px 20px;
+      border: 1px solid var(--blue);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--blue);
+      font: bold 16px Arial, sans-serif;
+      cursor: pointer;
+    }
+    #reset:hover { background: #eaf3ff; }
+    #reset:focus-visible { outline: 3px solid #000; outline-offset: 3px; }
+    #feedback { min-height: 24px; margin: 16px 0 0; line-height: 1.5; }
+    @media (max-width: 940px) {
+      .board { grid-template-columns: 1.2fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      body { padding: 28px 16px; }
+      .directions { font-size: 16px; margin-bottom: 24px; }
+      .board { grid-template-columns: 1fr; }
+      #numbers { min-height: 365px; }
+      .drop-zone { min-height: 250px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .drop-zone, .box-footer { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Rounding to the Nearest 100 Sort</h1>
+    <p class="directions">
+      Drag and drop each number into the correct box based on what it rounds to
+      when rounding to the nearest 100. Each box can contain only
+      <strong class="item-limit">3 items</strong>.
+    </p>
+
+    <div class="board">
+      <section class="box" aria-labelledby="numbers-title">
+        <h2 id="numbers-title">Numbers</h2>
+        <div id="numbers" class="drop-zone" role="group"
+             aria-label="Numbers" aria-describedby="access-help"></div>
+        <p class="box-footer" id="bank-count">9 numbers to sort</p>
+      </section>
+
+      <section class="box" aria-labelledby="title-300">
+        <h2 id="title-300">Rounds to 300</h2>
+        <div id="rounds-300" class="drop-zone" data-rounds-to="300"
+             role="group" aria-label="Rounds to 300"
+             aria-describedby="access-help"></div>
+        <p class="box-footer"><span id="count-300">0</span> / 3 items</p>
+      </section>
+
+      <section class="box" aria-labelledby="title-400">
+        <h2 id="title-400">Rounds to 400</h2>
+        <div id="rounds-400" class="drop-zone" data-rounds-to="400"
+             role="group" aria-label="Rounds to 400"
+             aria-describedby="access-help"></div>
+        <p class="box-footer"><span id="count-400">0</span> / 3 items</p>
+      </section>
+
+      <section class="box" aria-labelledby="title-500">
+        <h2 id="title-500">Rounds to 500</h2>
+        <div id="rounds-500" class="drop-zone" data-rounds-to="500"
+             role="group" aria-label="Rounds to 500"
+             aria-describedby="access-help"></div>
+        <p class="box-footer"><span id="count-500">0</span> / 3 items</p>
+      </section>
+    </div>
+
+    <div class="controls">
+      <p class="access-help" id="access-help">
+        You can also click or tap a number, then click or tap a box.
+      </p>
+      <p id="progress">0 of 9 correct</p>
+      <button id="reset" type="button">Start over</button>
+      <p id="feedback" role="status" aria-live="polite" aria-atomic="true">
+        Choose a number to begin.
+      </p>
+    </div>
+    <noscript><p>Please enable JavaScript to use this sorting activity.</p></noscript>
+  </main>
+
+  <script>
+    "use strict";
+
+    const values = [382, 349, 285, 520, 304, 449, 350, 489, 451];
+    const maxItems = 3;
+    const bank = document.getElementById("numbers");
+    const zones = [...document.querySelectorAll(".drop-zone")];
+    const feedback = document.getElementById("feedback");
+    let selected = null;
+    let dragged = null;
+
+    function announce(message) {
+      feedback.textContent = message;
+    }
+
+    function clearSelection() {
+      if (selected) {
+        selected.classList.remove("selected");
+        selected.setAttribute("aria-pressed", "false");
+      }
+      selected = null;
+    }
+
+    function selectCard(card) {
+      const wasSelected = selected === card;
+      clearSelection();
+      if (wasSelected) {
+        announce("Selection canceled.");
+        return;
+      }
+      selected = card;
+      card.classList.add("selected");
+      card.setAttribute("aria-pressed", "true");
+      announce(card.dataset.value + " selected. Choose a box.");
+    }
+
+    function updateCounts() {
+      const remaining = bank.children.length;
+      document.getElementById("bank-count").textContent =
+        remaining + (remaining === 1 ? " number to sort" : " numbers to sort");
+      bank.setAttribute("aria-label", "Numbers, " + remaining + " remaining");
+      zones.filter(zone => zone.dataset.roundsTo).forEach(zone => {
+        const target = zone.dataset.roundsTo;
+        const count = zone.children.length;
+        document.getElementById("count-" + target).textContent = count;
+        zone.setAttribute("aria-label",
+          "Rounds to " + target + ", " + count + " of " + maxItems + " items");
+      });
+      const correct = document.querySelectorAll(".number.correct").length;
+      document.getElementById("progress").textContent =
+        correct + " of " + values.length + " correct";
+      return correct;
+    }
+
+    // One shared move function enforces the limit for drag, click, and tap.
+    function moveCard(card, destination) {
+      if (!card || !zones.includes(destination)) return;
+
+      if (card.parentElement === destination) {
+        clearSelection();
+        announce(card.dataset.value + " is already in that box.");
+        return;
+      }
+
+      const target = destination.dataset.roundsTo;
+      // The Numbers bank holds all nine; only answer boxes have a limit.
+      if (target && destination.children.length >= maxItems) {
+        announce("That box already has 3 items. Move one out first.");
+        return;
+      }
+
+      destination.appendChild(card);
+      card.classList.remove("correct", "incorrect");
+      card.querySelector(".mark").textContent = "";
+      clearSelection();
+
+      const value = Number(card.dataset.value);
+      let message;
+      if (target) {
+        // Standard rounding: 350 rounds up to 400; 450 rounds up to 500.
+        const isCorrect = Math.round(value / 100) * 100 === Number(target);
+        card.classList.add(isCorrect ? "correct" : "incorrect");
+        card.querySelector(".mark").textContent = isCorrect ? "✓" : "×";
+        card.setAttribute("aria-label",
+          value + (isCorrect ? ", correct" : ", incorrect, try another box"));
+        message = isCorrect
+          ? value + " is correct!"
+          : value + " does not round to " + target + ". Try another box.";
+      } else {
+        card.setAttribute("aria-label", String(value));
+        message = value + " returned to Numbers.";
+      }
+
+      if (updateCounts() === values.length) {
+        message = "Perfect work! You're a mathematical genius!";
+      }
+      announce(message);
+    }
+
+    function resetActivity() {
+      clearSelection();
+      dragged = null;
+      zones.forEach(zone => {
+        zone.replaceChildren();
+        zone.classList.remove("drag-over");
+      });
+      values.forEach(value => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.tabIndex = -1;
+        card.className = "number";
+        card.id = "number-" + value;
+        card.dataset.value = value;
+        card.draggable = true;
+        card.setAttribute("aria-label", String(value));
+        card.setAttribute("aria-pressed", "false");
+        card.append(String(value));
+        const mark = document.createElement("span");
+        mark.className = "mark";
+        mark.setAttribute("aria-hidden", "true");
+        card.append(mark);
+        bank.append(card);
+
+        card.addEventListener("click", event => {
+          event.stopPropagation();
+          selectCard(card);
+        });
+        card.addEventListener("dragstart", event => {
+          clearSelection();
+          dragged = card;
+          event.dataTransfer.setData("text/plain", card.id);
+          event.dataTransfer.effectAllowed = "move";
+          card.classList.add("dragging");
+        });
+        card.addEventListener("dragend", () => {
+          card.classList.remove("dragging");
+          dragged = null;
+          zones.forEach(zone => zone.classList.remove("drag-over"));
+        });
+      });
+      updateCounts();
+      announce("Choose a number to begin.");
+    }
+
+    zones.forEach(zone => {
+      const box = zone.closest(".box");
+      box.addEventListener("dragover", event => {
+        if (!dragged) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        zone.classList.add("drag-over");
+      });
+      box.addEventListener("dragleave", event => {
+        if (!box.contains(event.relatedTarget)) zone.classList.remove("drag-over");
+      });
+      box.addEventListener("drop", event => {
+        event.preventDefault();
+        zone.classList.remove("drag-over");
+        if (dragged && event.dataTransfer.getData("text/plain") === dragged.id) {
+          moveCard(dragged, zone);
+        }
+      });
+      // The entire box, including its header and counter, is clickable.
+      box.addEventListener("click", () => {
+        if (selected) moveCard(selected, zone);
+      });
+    });
+
+    document.getElementById("reset").addEventListener("click", resetActivity);
+    resetActivity();
+  </script>
+</body>
+</html>
+
